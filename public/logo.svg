@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Outer orbital rings -->
+  <ellipse cx="50" cy="50" rx="46" ry="20" stroke="url(#grad)" stroke-width="4.5" fill="none"
+    transform="rotate(-35 50 50)" stroke-linecap="round"/>
+  <ellipse cx="50" cy="50" rx="46" ry="20" stroke="url(#grad)" stroke-width="4.5" fill="none"
+    transform="rotate(35 50 50)" stroke-linecap="round"/>
+  <ellipse cx="50" cy="50" rx="46" ry="20" stroke="url(#grad)" stroke-width="4.5" fill="none"
+    transform="rotate(90 50 50)" stroke-linecap="round"/>
+
+  <!-- Center hexagon shield -->
+  <polygon points="50,32 63,40 63,56 50,64 37,56 37,40"
+    stroke="url(#grad)" stroke-width="3.5" fill="none" stroke-linejoin="round"/>
+
+  <!-- Center star/sparkle -->
+  <line x1="50" y1="42" x2="50" y2="54" stroke="url(#grad)" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="44" y1="48" x2="56" y2="48" stroke="url(#grad)" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="45.5" y1="43.5" x2="54.5" y2="52.5" stroke="url(#grad)" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="54.5" y1="43.5" x2="45.5" y2="52.5" stroke="url(#grad)" stroke-width="1.8" stroke-linecap="round"/>
+
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5c8"/>
+      <stop offset="100%" stop-color="#0d5a7a"/>
+    </linearGradient>
+  </defs>
+</svg>

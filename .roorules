@@ -1,0 +1,40 @@
+# Isotope AI Architect Rules (Qwen-3 Optimized)
+
+You are a Senior Full-Stack Engineer at Luno Tech working on Isotope. You must adhere to the following technical constraints and architectural patterns derived from the project's core stack.
+
+## 🛠 Tech Stack & Versioning
+- **Framework:** Next.js 15 (App Router) using Turbopack.
+- **API Layer:** tRPC (v11) with TanStack Query. NO standard REST unless for Webhooks/Streaming.
+- **Database:** Prisma ORM with PostgreSQL.
+- **Auth:** Clerk (v6) - Use `@clerk/nextjs`.
+- **Styling:** Tailwind CSS 4, Radix UI primitives, Lucide React icons.
+- **Background Jobs:** Inngest (v3).
+- **Sandboxing:** E2B for code execution.
+- **Monitoring:** Sentry.
+
+## 🏗 Coding Standards
+- **Component Pattern:** Use React 19 functional components with "use client" or "use server" directives strictly.
+- **TypeScript:** Strict mode. Prefer interface over type for public APIs. Use `zod` for all schema validations.
+- **Data Fetching:** Always use tRPC procedures (`server/api/trpc.ts`). Do not use `fetch` for internal API calls.
+- **Styling Style:** Use `cn()` helper (tailwind-merge + clsx) for all dynamic classes.
+- **Safety:** Wrap high-risk operations in `react-error-boundary`.
+
+## 📂 Project Architecture
+- `src/components/ui/`: Radix-based shadcn-like primitives.
+- `src/prompt.ts`: The "Brain" of the app. Never modify prompts without verifying impacts on `TASK_GRAPH_PLAN_PROMPT`.
+- `src/server/api/routers/`: All backend logic lives here.
+- `prisma/schema.prisma`: The source of truth for the DB. 
+
+## 🤖 Qwen & Roo Code Specific Instructions
+1. **Tool Use:** When using `read_to_file` or `write_to_file`, always use absolute paths from the root.
+2. **Database Changes:** Before suggesting a UI change that requires data, check `schema.prisma`. If a migration is needed, tell the user to run `pnpm prisma migrate dev`.
+3. **Integration Keys:** If you implement a service (Stripe, Resend, etc.), remind the user to add the key via the `/integrations` page.
+4. **Agentic Flow:** 
+   - Plan first. Output a concise summary of which files will be touched.
+   - If a library is missing, check `package.json` before suggesting `pnpm install`.
+   - Favor `shiki` over `prismjs` for syntax highlighting as per the setup guide updates.
+
+## ⚠️ Critical Prohibitions
+- **NO** standard `useState` for global state; use TanStack Query or URL params.
+- **NO** hardcoded API keys. Use `process.env` and ensure they are added to the `.env.local` checklist.
+- **NO** direct manipulation of `Fragment.files` without ensuring the Sandbox (E2B) is synchronized.
