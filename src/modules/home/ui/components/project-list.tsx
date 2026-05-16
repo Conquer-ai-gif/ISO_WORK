@@ -62,9 +62,6 @@ export const ProjectsList = () => {
       setDeletingId(null)
     },
   }))
-    onError: (e) => toast.error(e.message),
-  }
-))
 
   const rename = useMutation(trpc.projects.rename.mutationOptions({
     onMutate: async ({ id, name }) => {
@@ -83,8 +80,6 @@ export const ProjectsList = () => {
       toast.error('Failed to rename project')
       setRenamingId(null)
     },
-  }))
-    onError: (e) => toast.error(e.message),
   }))
 
   const renamingProject = projects?.find((p) => p.id === renamingId)

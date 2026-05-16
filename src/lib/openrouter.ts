@@ -20,6 +20,8 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import * as Sentry from '@sentry/nextjs'
+import { openai } from '@inngest/ai'
+import type { OpenAiAiAdapter } from '@inngest/ai'
 
 // ── Task types ────────────────────────────────────────────────────────────────
 // Single source of truth — imported from the executor's task graph schema.
@@ -47,8 +49,12 @@ export type Complexity = 'simple' | 'medium' | 'complex'
 // ── Model registry ────────────────────────────────────────────────────────────
 const MODELS = {
   free: {
-    fast:   'qwen/qwen3-coder:free',   // $0 — coding, fast tasks
-    smart:  'qwen/qwen3-coder:free',   // $0 — same for now
+    fast:   'nvidia/nemotron-3-super-120b-a12b:free',   // $0 — coding, fast tasks
+    smart:  'nvidia/nemotron-3-super-120b-a12b:free',   // $0 — same for now
+    // fast:   'deepseek/deepseek-r1',   // $0 — coding, fast tasks
+    // smart:  'deepseek/deepseek-r1',   // $0 — same for now
+    // fast:   'qwen/qwen3-coder:free',   // $0 — coding, fast tasks
+    // smart:  'qwen/qwen3-coder:free',   // $0 — same for now
     reader: 'google/gemini-flash-1.5:free', // $0 — 1M ctx, reading/planning
     // Uncomment when you have budget:
     // smart: 'deepseek/deepseek-v3.2',
@@ -179,44 +185,103 @@ function getModelTier(
 
 // ── Core model builder ────────────────────────────────────────────────────────
 
-function buildModel(modelSlug: string, temperature: number) {
-  return {
-    name: modelSlug,
-    temperature,
+type OpenRouterModel = OpenAiAiAdapter & {
+  run(messages: { role: string; content: string | unknown[] }[]): Promise<string>
+}
 
-    async run(messages: { role: string; content: string | unknown[] }[]): Promise<string> {
-      const apiKey = process.env.OPENROUTER_API_KEY
-      if (!apiKey) {
+const OPENROUTER_MAX_RETRIES = 3
+const OPENROUTER_RETRY_BASE_MS = 1000
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+function parseRetryAfter(res: Response, json: any): number {
+  const headerValue = res.headers.get('Retry-After')
+  if (headerValue) {
+    const seconds = Number(headerValue)
+    if (!Number.isNaN(seconds)) return seconds * 1000
+  }
+
+  if (json?.error?.metadata?.retry_after_seconds) {
+    return Number(json.error.metadata.retry_after_seconds) * 1000
+  }
+
+  if (json?.error?.metadata?.retry_after_seconds_raw) {
+    return Number(json.error.metadata.retry_after_seconds_raw) * 1000
+  }
+
+  return OPENROUTER_RETRY_BASE_MS
+}
+
+function buildModel(modelSlug: string, temperature: number): OpenRouterModel {
+  const apiKey = process.env.OPENROUTER_API_KEY ?? ''
+  const adapter = openai({
+    apiKey,
+    model: modelSlug,
+    baseUrl: 'https://openrouter.ai/api/v1/',
+    defaultParameters: {
+      temperature,
+    },
+  }) as OpenAiAiAdapter
+
+  return Object.assign(adapter, {
+    async run(messages: { role: string; content: string | unknown[] }[]) {
+      if (!process.env.OPENROUTER_API_KEY) {
         throw new Error(
           'OPENROUTER_API_KEY is not set. Add it to .env.local and your deployment environment.',
         )
       }
 
-      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer':  process.env.NEXT_PUBLIC_APP_URL ?? 'https://isotope.app',
-          'X-Title':       'Isotope',
-        },
-        body: JSON.stringify({
-          model:       modelSlug,
-          messages,
-          max_tokens:  8192,
-          temperature,
-        }),
-      })
+      let lastError: Error | undefined
+      for (let attempt = 1; attempt <= OPENROUTER_MAX_RETRIES; attempt++) {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'HTTP-Referer':  process.env.NEXT_PUBLIC_APP_URL ?? 'https://isotope.app',
+            'X-Title':       'Isotope',
+          },
+          body: JSON.stringify({
+            model:       modelSlug,
+            messages,
+            max_tokens:  8192,
+            temperature,
+          }),
+        })
 
-      if (!res.ok) {
-        const err = await res.text()
-        throw new Error(`OpenRouter API error ${res.status}: ${err}`)
+        const text = await res.text()
+        let data: any
+        try {
+          data = text ? JSON.parse(text) : null
+        } catch {
+          data = null
+        }
+
+        if (res.ok) {
+          return data?.choices?.[0]?.message?.content ?? ''
+        }
+
+        const retryAfterMs = parseRetryAfter(res, data)
+        const errorMessage = `OpenRouter API error ${res.status}: ${text}`
+        lastError = new Error(errorMessage)
+
+        const isRetryable = res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504
+        if (!isRetryable || attempt === OPENROUTER_MAX_RETRIES) {
+          throw lastError
+        }
+
+        const backoffMs = Math.max(retryAfterMs, OPENROUTER_RETRY_BASE_MS * attempt)
+        console.warn(
+          `[openrouter] request throttled (status ${res.status}), retrying in ${backoffMs}ms (attempt ${attempt}/${OPENROUTER_MAX_RETRIES})`,
+        )
+        await wait(backoffMs)
       }
 
-      const data = await res.json()
-      return data.choices?.[0]?.message?.content ?? ''
+      throw lastError ?? new Error('OpenRouter API request failed')
     },
-  } as const
+  })
 }
 
 // ── Dynamic model selection ───────────────────────────────────────────────────

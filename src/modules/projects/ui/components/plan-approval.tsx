@@ -200,14 +200,6 @@ export function PlanApproval({ messageId, planJson, onApproved, onRejected }: Pr
     )
   }
 
-  const TASK_TYPE_STYLES: Record<string, string> = {
-    ui:          'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    backend:     'bg-purple-500/10 text-purple-400 border-purple-500/20',
-    db:          'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    integration: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    search:      'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  }
-
   return (
     <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-4 max-w-2xl">
 

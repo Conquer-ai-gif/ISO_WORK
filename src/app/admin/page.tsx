@@ -118,23 +118,23 @@ function ActivityChart() {
       <div className="p-5">
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={formatted} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--border) / 0.5)" />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+              tick={{ fontSize: 11, fill: 'oklch(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
               interval={4}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+              tick={{ fontSize: 11, fill: 'oklch(var(--muted-foreground))' }}
               tickLine={false}
               axisLine={false}
             />
             <Tooltip
               contentStyle={{
-                background: 'hsl(var(--popover))',
-                border: '1px solid hsl(var(--border))',
+                background: 'oklch(var(--popover))',
+                border: '1px solid okLch(var(--border))',
                 borderRadius: '8px',
                 fontSize: '12px',
               }}
@@ -142,11 +142,11 @@ function ActivityChart() {
             <Legend wrapperStyle={{ fontSize: '12px' }} />
             <Line
               type="monotone" dataKey="projects" name="Projects"
-              stroke="hsl(var(--primary))" strokeWidth={2} dot={false}
+              stroke="oklch(var(--primary))" strokeWidth={2} dot={false}
             />
             <Line
               type="monotone" dataKey="generations" name="Generations"
-              stroke="hsl(var(--chart-4))" strokeWidth={2} dot={false}
+              stroke="oklch(var(--chart-4))" strokeWidth={2} dot={false}
             />
           </LineChart>
         </ResponsiveContainer>

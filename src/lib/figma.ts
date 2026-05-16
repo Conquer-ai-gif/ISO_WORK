@@ -31,10 +31,6 @@ export async function fetchFigmaNodes(fileId: string, nodeIds?: string[]) {
     ? `${FIGMA_API}/files/${fileId}/nodes?ids=${nodeIds.join(',')}`
     : `${FIGMA_API}/files/${fileId}`;
 
-  const endpoint = nodeIds?.length
-    ? `${FIGMA_API}/files/${fileId}/nodes?ids=${nodeIds.join(',')}`
-    : `${FIGMA_API}/files/${fileId}`
-
   const controller = new AbortController()
   const timeout    = setTimeout(() => controller.abort(), 15_000)
 

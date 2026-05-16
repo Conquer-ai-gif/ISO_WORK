@@ -4,6 +4,7 @@ allowBuilds:
   '@prisma/engines': true
   '@sentry/cli': true
   esbuild: true
+  inngest-cli: true
   prisma: true
   protobufjs: true
   sharp: true

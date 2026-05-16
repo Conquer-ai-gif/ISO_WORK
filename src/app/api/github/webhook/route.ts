@@ -54,23 +54,6 @@ export async function refreshVercelUrl(projectId: string, vercelProjectId: strin
   }
 }
 
-    // Also update the latest fragment's deployUrl
-    const latestMsg = await prisma.message.findFirst({
-      where: { projectId, role: 'ASSISTANT', type: 'RESULT' },
-      orderBy: { createdAt: 'desc' },
-      include: { fragment: true },
-    })
-    if (latestMsg?.fragment) {
-      await prisma.fragment.update({
-        where: { id: latestMsg.fragment.id },
-        data: { deployUrl },
-      })
-    }
-  } catch (e) {
-    console.error('[webhook] Vercel URL refresh failed:', e)
-  }
-}
-
 export async function POST(req: NextRequest) {
   const body = await req.text()
   const sig = req.headers.get('x-hub-signature-256') ?? ''

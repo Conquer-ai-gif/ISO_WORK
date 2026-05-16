@@ -28,9 +28,18 @@ const ProgressDots = () => (
   </span>
 )
 
-export const MessageLoading = () => {
+interface MessageLoadingProps {
+  planReady?: boolean
+}
+
+export const MessageLoading = ({ planReady = false }: MessageLoadingProps) => {
   const [stepIndex, setStepIndex] = useState(0)
   const [progress, setProgress] = useState(0)
+
+  // Unmount immediately when plan arrives
+  if (planReady) {
+    return null
+  }
 
   useEffect(() => {
     if (stepIndex >= STEPS.length - 1) return

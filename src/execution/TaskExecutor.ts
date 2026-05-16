@@ -10,6 +10,7 @@ export interface ExecutionContext {
   sandboxId: string
   tools: Record<string, unknown>
   emit: EventEmitterFn
+  step?: any  // Inngest step context for tool durability
 }
 
 export interface AgentRunner {
