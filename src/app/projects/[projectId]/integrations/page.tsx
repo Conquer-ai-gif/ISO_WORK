@@ -218,6 +218,8 @@ const SECTIONS: SectionDef[] = [
         ],
         note: 'Required to import your own Figma designs. Each user needs their own token — Figma tokens only access files your Figma account can view.',
       },
+      {
+        provider: 'openrouter_api_key',
         label: 'OpenRouter',
         envVar: 'OPENROUTER_API_KEY',
         placeholder: 'sk-or-...',

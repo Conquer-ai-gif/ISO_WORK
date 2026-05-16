@@ -43,16 +43,6 @@ export const ProjectForm = () => {
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [showTemplates, setShowTemplates] = useState(false)
 
-  const isPending = createProject.isPending || uploadingImage
-  const isButtonDisabled = isPending || !form.formState.isValid
-
-  const watchedValue = form.watch('value')
-  const hasUserInput = watchedValue.length > 0
-
-  // Ghost typewriter — active only when input is empty AND not focused AND not loading
-  const ghostActive = !isFocused && !hasUserInput && !isPending
-  const { ghostText, showCursor, interrupt, resume } = useGhostTypewriter(ghostActive)
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { value: '' },
@@ -72,6 +62,16 @@ export const ProjectForm = () => {
       }
     },
   }))
+
+  const isPending = createProject.isPending || uploadingImage
+  const isButtonDisabled = isPending || !form.formState.isValid
+
+  const watchedValue = form.watch('value')
+  const hasUserInput = watchedValue.length > 0
+
+  // Ghost typewriter — active only when input is empty AND not focused AND not loading
+  const ghostActive = !isFocused && !hasUserInput && !isPending
+  const { ghostText, showCursor, interrupt, resume } = useGhostTypewriter(ghostActive)
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     await createProject.mutateAsync({

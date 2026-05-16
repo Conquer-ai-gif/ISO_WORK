@@ -35,7 +35,7 @@ export const MessagesContainer = ({
 
   const { data: messages } = useSuspenseQuery(trpc.messages.getMany.queryOptions(
     { projectId },
-    { refetchInterval: 2000 }
+    { refetchInterval: 5000 }
   ))
 
   useEffect(() => {
@@ -56,7 +56,8 @@ export const MessagesContainer = ({
   }, [messages.length]);
 
   const lastMessage = messages[messages.length - 1]
-  const isLastMessageUser = lastMessage?.role === 'USER';
+  const lastMessageWithPlan = [...messages].reverse().find(m => m.role === 'ASSISTANT' && m.type === 'RESULT' && m.plan)
+  const lastMessageWithPlanExists = !!lastMessageWithPlan
   const lastAssistantResultId = [...messages].reverse()
     .find((m) => m.role === 'ASSISTANT' && m.type === 'RESULT')?.id;
 
@@ -83,7 +84,7 @@ export const MessagesContainer = ({
               planStatus={message.planStatus}
             />
           ))}
-          {isLastMessageUser && <MessageLoading />}
+          {!lastMessageWithPlanExists && <MessageLoading planReady={lastMessageWithPlanExists} />}
           <div ref={bottomRef} />
         </div>
       </div>

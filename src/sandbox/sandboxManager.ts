@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db'
 import { SANDBOX_TIMEOUT } from '@/inngest/types'
 import { makeEvent, type EventEmitterFn } from '@/streaming/events'
 
-const TEMPLATE_ID = 'isotope-vibe'
+const TEMPLATE_ID = 'isotope-git'
 
 export interface SandboxManager {
   sandboxId: string

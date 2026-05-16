@@ -101,7 +101,7 @@ export const messageRouter = createTRPCRouter({
         data: {
           projectId: existingProject.id,
           content: input.value,
-          role: 'USER',
+          role: 'ASSISTANT',
           type: 'RESULT',
           imageUrl: input.imageUrl ?? null,
           planStatus: 'pending',

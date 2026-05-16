@@ -1,4 +1,3 @@
-import { createAgent, createNetwork } from '@inngest/agent-kit'
 import * as Sentry from '@sentry/nextjs'
 import { TASK_GRAPH_PLAN_PROMPT } from '@/prompt'
 import { retryValidatePlan } from './validation'
@@ -117,28 +116,12 @@ export async function generateTaskGraph(options: PlannerOptions): Promise<TaskGr
   )
 
   const generateRaw = async (): Promise<string> => {
-    const planAgent = createAgent({
-      name:        'plan-agent',
-      description: 'Converts a user request into a validated task graph',
-      system:      planPromptWithLimit,
-      model:       openRouterModel,  // Qwen — better at strict JSON task graph output than Gemini
-    })
-
-    const planNetwork = createNetwork({
-      name:    'plan-network',
-      agents:  [planAgent],
-      maxIter: 1,
-    })
-
     const planInput = `${existingFilesContext}\n\n<user_request>\n${userRequest}\n</user_request>`
-    const { output } = await planNetwork.run(planInput)
-
-    return output
-      .filter((m: { type: string }) => m.type === 'text')
-      .map((m: { content: string | Array<{ text: string }> }) =>
-        Array.isArray(m.content) ? m.content.map((c) => c.text).join('') : m.content,
-      )
-      .join('')
+    const messages = [
+      { role: 'system', content: planPromptWithLimit },
+      { role: 'user', content: planInput },
+    ]
+    return await openRouterModel.run(messages)
   }
 
   return retryValidatePlan(generateRaw)

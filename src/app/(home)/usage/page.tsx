@@ -128,30 +128,30 @@ function UsageContent() {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--border) / 0.5)" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fontSize: 11, fill: 'oklch(var(--muted-foreground))' }}
                   tickLine={false}
                   axisLine={false}
                   interval={4}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fontSize: 11, fill: 'oklch(var(--muted-foreground))' }}
                   tickLine={false}
                   axisLine={false}
                   allowDecimals={false}
                 />
                 <Tooltip
                   contentStyle={{
-                    background: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
+                    background: 'oklch(var(--popover))',
+                    border: '1px solid okLch(var(--border))',
                     borderRadius: '8px',
                     fontSize: '12px',
                   }}
                   formatter={(v: number) => [v, 'Generations']}
                 />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="count" fill="oklch(var(--primary))" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}
