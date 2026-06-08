@@ -5,10 +5,11 @@
   "packageManager": "pnpm@11.0.9",
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:inngest": "inngest-cli dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate && node scripts/patch-agent-kit.mjs",
     "setup": "bash scripts/setup.sh"
   },
   "dependencies": {

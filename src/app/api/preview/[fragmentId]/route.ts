@@ -20,6 +20,7 @@ function buildReactPage(files: { [path: string]: string }): string {
   // Find the entry point — prefer app/page.tsx, then page.tsx, then index.tsx/jsx
   const entryPriority = [
     'app/page.tsx', 'app/page.jsx',
+    'app/todos/page.tsx', 'app/todos/page.jsx',
     'src/app/page.tsx', 'src/app/page.jsx',
     'page.tsx', 'page.jsx',
     'src/pages/index.tsx', 'src/pages/index.jsx',
@@ -30,11 +31,18 @@ function buildReactPage(files: { [path: string]: string }): string {
 
   let entryPath = entryPriority.find((p) => files[p]);
   if (!entryPath) {
+    entryPath = codeFiles.find(([p]) => /\/page\.(tsx|jsx)$/.test(p))?.[0];
+  }
+  if (!entryPath) {
     entryPath = codeFiles.find(([p]) => /\.(tsx|jsx)$/.test(p))?.[0];
   }
   if (!entryPath) {
     return errorPage('No entry point found in generated files.');
   }
+
+  const entryKey = entryPath
+    .replace(/^(src\/)?/, '')
+    .replace(/\.(tsx?|jsx?)$/, '');
 
   // Build a virtual module registry — each file becomes an inline module
   // Imports between files are resolved via the registry
@@ -67,83 +75,186 @@ function buildReactPage(files: { [path: string]: string }): string {
 </head>
 <body>
   <div id="root"></div>
-  <script>
-    // Virtual module registry
-    const __modules = {};
-    ${moduleRegistry.map(escapeScript).join('\n    ')}
 
-    // Simple module resolver — strips TypeScript types before Babel transform
-    function __require(path) {
-      const key = path
-        .replace(/^[./]+/, '')
-        .replace(/^(src\/)?/, '')
-        .replace(/\\.(tsx?|jsx?)$/, '');
-
-      if (__modules[key] === undefined) {
-        // Try common aliases
-        const aliases = [key, 'components/' + key, 'lib/' + key, 'utils/' + key];
-        for (const a of aliases) {
-          if (__modules[a] !== undefined) return __evalModule(a);
-        }
-        return {}; // graceful fallback for missing modules
-      }
-      return __evalModule(key);
-    }
-
-    const __evaluated = {};
-    function __evalModule(key) {
-      if (__evaluated[key]) return __evaluated[key].exports;
-      const exports = {};
-      __evaluated[key] = { exports };
-      const src = __modules[key];
-
-      // Strip TypeScript-specific syntax that Babel standalone can't handle cleanly
-      const cleaned = src
-        .replace(/^\\s*import type .+$/gm, '')
-        .replace(/^\\s*export type .+$/gm, '')
-        .replace(/<[A-Z][\\w.]*>/g, '') // generic type params on function calls
-        .replace(/: [A-Z][\\w<>, |&\\[\\]]+(?=\\s*[=,);{])/g, '') // inline type annotations
-        .replace(/interface \\w+[^{]*\\{[^}]*\\}/gs, '') // interface blocks
-        .replace(/type \\w+\\s*=[^;\\n]+;/g, ''); // type aliases
-
-      try {
-        const transformed = Babel.transform(cleaned, {
-          presets: ['react'],
-          plugins: [],
-        }).code;
-
-        const fn = new Function('React', 'require', 'exports', 'module', transformed);
-        const mod = { exports };
-        fn(React, __require, exports, mod);
-        Object.assign(exports, mod.exports);
-      } catch(e) {
-        console.warn('Module eval failed for', key, e);
-      }
-
-      return exports;
-    }
-  </script>
-
-  <!-- React from CDN -->
+  <!-- React must load before the module bootstrap (generated code imports react) -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
   <script>
-    window.addEventListener('load', () => {
-      try {
-        const entry = __require(${JSON.stringify(entryPath.replace(/^(src\/)?/, '').replace(/\.(tsx?|jsx?)$/, ''))});
-        const App = entry.default || entry[Object.keys(entry)[0]];
-        if (!App) throw new Error('No default export found in entry file');
+    (function () {
+      const __modules = {};
+      ${moduleRegistry.map(escapeScript).join('\n      ')}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(React.createElement(App));
-      } catch(e) {
+      const __evaluated = {};
+
+      function __normalizeKey(path) {
+        return path
+          .replace(/^@\\//, '')
+          .replace(/^[./]+/, '')
+          .replace(/^(src\\/)?/, '')
+          .replace(/\\.(tsx?|jsx?|mjs|cjs)$/, '');
+      }
+
+      function __externalRequire(path) {
+        const p = path.replace(/\\\\/g, '/');
+        if (p === 'react' || p === 'react/') return window.React;
+        if (p === 'react-dom' || p === 'react-dom/') return window.ReactDOM;
+        if (p === 'react-dom/client') {
+          return { createRoot: window.ReactDOM.createRoot.bind(window.ReactDOM) };
+        }
+        if (p === 'react/jsx-runtime' || p === 'react/jsx-dev-runtime') {
+          const R = window.React;
+          return {
+            jsx: (type, props, key) => R.createElement(type, key == null ? props : { ...props, key }),
+            jsxs: (type, props, key) => R.createElement(type, key == null ? props : { ...props, key }),
+            Fragment: R.Fragment,
+          };
+        }
+        return null;
+      }
+
+      function __stubExports() {
+        const R = window.React;
+        const Stub = (props) => R.createElement('div', {
+          style: { padding: '4px', fontSize: '11px', color: '#888', border: '1px dashed #ccc' },
+          ...props,
+        }, props?.children ?? '');
+        const proxy = new Proxy({ default: Stub }, {
+          get: (t, k) => (k in t ? t[k] : Stub),
+        });
+        return proxy;
+      }
+
+      function __cleanSource(src) {
+        return src
+          .replace(/^['"]use client['"];?\\s*/gm, '')
+          .replace(/^['"]use server['"];?\\s*/gm, '')
+          .replace(/^\\s*import type .+$/gm, '')
+          .replace(/^\\s*export type .+$/gm, '');
+      }
+
+      function __transformSource(src, key) {
+        const cleaned = __cleanSource(src);
+        const baseOpts = {
+          filename: (key || 'module') + '.tsx',
+          sourceType: 'module',
+        };
+        const presets = [
+          ['env', { modules: 'commonjs', targets: { esmodules: false } }],
+          'typescript',
+          ['react', { runtime: 'classic' }],
+        ];
+        try {
+          // Emit require/exports — new Function() is not an ES module scope.
+          return Babel.transform(cleaned, { ...baseOpts, presets }).code;
+        } catch (e) {
+          try {
+            return Babel.transform(cleaned, {
+              ...baseOpts,
+              presets: ['typescript', ['react', { runtime: 'classic' }]],
+              plugins: ['transform-modules-commonjs'],
+            }).code;
+          } catch (e2) {
+            console.warn('Babel transform failed for', key, e2 || e);
+            return null;
+          }
+        }
+      }
+
+      function __resolveComponent(exports, entryKey) {
+        if (exports.default != null) {
+          const d = exports.default;
+          if (typeof d === 'function' || typeof d === 'object') return d;
+        }
+        const fns = Object.values(exports).filter((v) => typeof v === 'function');
+        if (fns.length === 1) return fns[0];
+        const guesses = ['TodoPage', 'Page', 'Home', 'App'];
+        const seg = entryKey.split('/').filter(Boolean).pop() || '';
+        if (seg) {
+          const pascal = seg.replace(/[-_](.)/g, (_, c) => c.toUpperCase())
+            .replace(/^./, (c) => c.toUpperCase());
+          guesses.unshift(pascal);
+        }
+        for (const name of guesses) {
+          if (typeof exports[name] === 'function') return exports[name];
+        }
+        return null;
+      }
+
+      function __evalModule(key) {
+        if (__evaluated[key]) return __evaluated[key].exports;
+        const exports = {};
+        __evaluated[key] = { exports };
+        const src = __modules[key];
+        if (src == null) return __stubExports();
+
+        const transformed = __transformSource(src, key);
+        if (!transformed) {
+          __evaluated[key].error = 'Babel transform failed';
+          return exports;
+        }
+
+        try {
+          const fn = new Function('React', 'require', 'exports', 'module', transformed);
+          const mod = { exports };
+          fn(window.React, window.__require, mod.exports, mod);
+          Object.assign(exports, mod.exports);
+        } catch (e) {
+          console.warn('Module eval failed for', key, e);
+          __evaluated[key].error = e && e.message ? e.message : String(e);
+        }
+
+        return exports;
+      }
+
+      function __require(path) {
+        const ext = __externalRequire(path);
+        if (ext) return ext;
+
+        const key = __normalizeKey(path);
+        if (__modules[key] !== undefined) return __evalModule(key);
+
+        const aliases = [
+          key,
+          'components/' + key,
+          'lib/' + key,
+          'utils/' + key,
+          'hooks/' + key,
+        ];
+        for (const a of aliases) {
+          if (__modules[a] !== undefined) return __evalModule(a);
+        }
+
+        if (!path.includes('/') || path.startsWith('@/')) {
+          return __stubExports();
+        }
+        return __stubExports();
+      }
+
+      window.__modules = __modules;
+      window.__require = __require;
+
+      try {
+        const entry = window.__require(${JSON.stringify(entryKey)});
+        const App = __resolveComponent(entry, ${JSON.stringify(entryKey)});
+        if (!App) {
+          const evalErr = __evaluated[${JSON.stringify(entryKey)}]?.error;
+          throw new Error(
+            evalErr
+              ? 'Failed to compile ' + ${JSON.stringify(entryPath)} + ': ' + evalErr
+              : 'No default export found in ' + ${JSON.stringify(entryPath)},
+          );
+        }
+
+        const root = window.ReactDOM.createRoot(document.getElementById('root'));
+        root.render(window.React.createElement(App));
+      } catch (e) {
         document.getElementById('root').innerHTML =
           '<div style="padding:2rem;font-family:monospace;color:#dc2626">' +
-          '<strong>Preview error:</strong><br/>' + e.message + '</div>';
+          '<strong>Preview error:</strong><br/>' + (e && e.message ? e.message : String(e)) + '</div>';
         console.error(e);
       }
-    });
+    })();
   </script>
 
 <script>

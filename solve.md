@@ -1,0 +1,10 @@
+When the user approves a plan, approvePlan sets planStatus to 'approved' in the database and fires a new code-agent/run Inngest event. The Inngest function runs the coding phase successfully but never updates planStatus to anything new when done, so it stays as 'approved' forever. This means any retry, duplicate event, or accidental re-trigger will find planStatus = 'approved' and run the entire coding phase all over again. The fix is to add one final database step at the very end of the coding phase that updates planStatus to 'completed', and add a guard at the very top of the function that immediately returns early if it sees planStatus is already 'completed' — this way the function becomes idempotent and can never accidentally run twice for the same message.
+
+
+You're correct. Right now validateTask runs per task immediately after each task finishes, meaning if task 1 creates a file that depends on something task 3 hasn't created yet, the TypeScript check will report errors that aren't real errors — they only exist because the other files don't exist yet. The fix is to move the TypeScript validation to run once after the TaskExecutor has fully finished and all files are in allFiles, so the type checker sees the complete picture of the codebase before reporting any errors.
+
+
+qwen/qwen3-coder-480b:free — currently the strongest free coding model on OpenRouter, with 262K context and state-of-the-art code generation. Costgoat
+openai/gpt-oss-20b:free — matches o3-mini on code generation benchmarks and is completely free. Strong second choice for coding agents. Remote OpenClaw
+deepseek/deepseek-r1-distill:free — strong reasoning capabilities, good for complex multi-step tasks. Remote OpenClaw
+meta-llama/llama-4-maverick:free — 128K context window, supports vision input (useful since your agent handles image uploads). BULDRR AI

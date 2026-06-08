@@ -11,7 +11,7 @@
 # const sandbox = await Sandbox.create('isotope-git')
 
 team_id = "285b5146-59e0-40e7-bf86-d68ff64b95b8"
-start_cmd = "/compile_page.sh"
+start_cmd = "/home/user/compile_page.sh"
 dockerfile = "e2b.Dockerfile"
 template_name = "isotope-git"
 template_id = "tefpwgkvxw7r826yugxa"
