@@ -435,7 +435,8 @@ exports.MessageType = exports.$Enums.MessageType = {
 exports.PlanStatus = exports.$Enums.PlanStatus = {
   pending: 'pending',
   approved: 'approved',
-  rejected: 'rejected'
+  rejected: 'rejected',
+  completed: 'completed'
 };
 
 exports.Plan = exports.$Enums.Plan = {
@@ -450,7 +451,8 @@ exports.CreditEventReason = exports.$Enums.CreditEventReason = {
   generation: 'generation',
   referral: 'referral',
   plan_upgrade: 'plan_upgrade',
-  plan_renewal: 'plan_renewal'
+  plan_renewal: 'plan_renewal',
+  purchase: 'purchase'
 };
 
 exports.FeedbackType = exports.$Enums.FeedbackType = {

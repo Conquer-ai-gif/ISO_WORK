@@ -166,7 +166,8 @@ export type MessageType = (typeof MessageType)[keyof typeof MessageType]
 export const PlanStatus: {
   pending: 'pending',
   approved: 'approved',
-  rejected: 'rejected'
+  rejected: 'rejected',
+  completed: 'completed'
 };
 
 export type PlanStatus = (typeof PlanStatus)[keyof typeof PlanStatus]
@@ -187,7 +188,8 @@ export const CreditEventReason: {
   generation: 'generation',
   referral: 'referral',
   plan_upgrade: 'plan_upgrade',
-  plan_renewal: 'plan_renewal'
+  plan_renewal: 'plan_renewal',
+  purchase: 'purchase'
 };
 
 export type CreditEventReason = (typeof CreditEventReason)[keyof typeof CreditEventReason]

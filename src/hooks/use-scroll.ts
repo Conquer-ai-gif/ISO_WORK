@@ -5,7 +5,8 @@ export const useScroll =(threshold=10)=>{
 
     useEffect(()=>{
         const handleScroll =()=>{
-            setIsScroll(window.scrollY < threshold);
+            // setIsScroll(window.scrollY < threshold);
+            setIsScroll(window.scrollY > threshold);
 
         }
 

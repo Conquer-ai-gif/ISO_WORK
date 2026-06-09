@@ -49,13 +49,16 @@ export type Complexity = 'simple' | 'medium' | 'complex'
 // ── Model registry ────────────────────────────────────────────────────────────
 const MODELS = {
   free: {
-    fast:   'nvidia/nemotron-3-super-120b-a12b:free',   // $0 — coding, fast tasks
-    smart:  'nvidia/nemotron-3-super-120b-a12b:free',   // $0 — same for now
-    // fast:   'deepseek/deepseek-r1',   // $0 — coding, fast tasks
-    // smart:  'deepseek/deepseek-r1',   // $0 — same for now
+    // openai/gpt-oss-20b:free
+    // fast:   'nvidia/nemotron-3-super-120b-a12b:free',   // $0 — coding, fast tasks
+    // smart:  'nvidia/nemotron-3-super-120b-a12b:free',   // $0 — same for now
+    fast:   'openai/gpt-oss-120b:free',   // $0 — coding, fast tasks
+    smart:  'openai/gpt-oss-120b:free',   // $0 — same for now
+    // fast:   'poolside/laguna-m.1:free',   // $0 — coding, fast tasks
+    // smart:  'poolside/laguna-m.1:free',   // $0 — same for now
     // fast:   'qwen/qwen3-coder:free',   // $0 — coding, fast tasks
     // smart:  'qwen/qwen3-coder:free',   // $0 — same for now
-    reader: 'google/gemini-flash-1.5:free', // $0 — 1M ctx, reading/planning
+    reader: 'openai/gpt-oss-120b:free', // $0 — 1M ctx, reading/planning
     // Uncomment when you have budget:
     // smart: 'deepseek/deepseek-v3.2',
     // smart: 'moonshotai/kimi-k2.6',
@@ -64,7 +67,7 @@ const MODELS = {
     fast:   'openai/gpt-4o-mini',
     smart:  'deepseek/deepseek-v3.2',
     heavy:  'anthropic/claude-opus-4',
-    reader: 'google/gemini-flash-1.5:free', // reader stays free even on paid — no benefit to upgrading
+    reader: 'nvidia/nemotron-3-super-120b-a12b:free', // reader stays free even on paid — no benefit to upgrading
   },
 } as const
 

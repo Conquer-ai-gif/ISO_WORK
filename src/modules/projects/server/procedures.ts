@@ -1,4 +1,4 @@
-import { inngest } from '@/inngest/client';
+import { inngest, sendInngestEvent } from '@/inngest/client';
 import { prisma } from '@/lib/db';
 import { protectedProcedure, baseProcedure, createTRPCRouter } from '@/trpc/init';
 import z from 'zod';
@@ -106,10 +106,18 @@ export const projectsRouter = createTRPCRouter({
       });
       const messageId = createdProject.messages[0]?.id
       if (!messageId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create message' })
-      await inngest.send({
-        name: 'code-agent/run',
-        data: { value: input.value, projectId: createdProject.id, messageId, imageUrl: input.imageUrl },
-      });
+      try {
+        await sendInngestEvent({
+          name: 'code-agent/run',
+          data: { value: input.value, projectId: createdProject.id, messageId, imageUrl: input.imageUrl },
+        })
+      } catch (err) {
+        await prisma.project.delete({ where: { id: createdProject.id } }).catch(() => {})
+        throw new TRPCError({
+          code: 'SERVICE_UNAVAILABLE',
+          message: err instanceof Error ? err.message : 'Failed to start code generation',
+        })
+      }
       return createdProject;
     }),
 
@@ -577,11 +585,8 @@ export const projectsRouter = createTRPCRouter({
     }))
     .mutation(async ({ input, ctx }) => {
       await requirePaidPlan(ctx.auth.userId);
-      // Resolve Figma token — user's own token takes priority over server env var
-      // Figma personal tokens are per-user — using a shared token causes 403 errors
       let figmaAccessToken: string | null = null
 
-      // 1. Try user's own Figma token from IntegrationConfig
       const figmaIntegration = await prisma.integrationConfig.findFirst({
         where: { project: { userId: ctx.auth.userId }, provider: 'figma_token' },
         select: { encryptedKey: true, iv: true },
@@ -590,13 +595,11 @@ export const projectsRouter = createTRPCRouter({
         try {
           const { decrypt } = await import('@/lib/encryption')
           figmaAccessToken = decrypt(figmaIntegration.encryptedKey, figmaIntegration.iv)
-        } catch { /* decryption failed — fall through to env var */ }
+        } catch { /* fall through */ }
       }
 
-      // 2. Fall back to server-wide env var (useful for single-tenant deployments)
       if (!figmaAccessToken) figmaAccessToken = process.env.FIGMA_ACCESS_TOKEN ?? null
 
-      // 3. Neither configured — give a clear actionable error (not a 500)
       if (!figmaAccessToken) {
         throw new TRPCError({
           code: 'PRECONDITION_FAILED',
@@ -604,10 +607,6 @@ export const projectsRouter = createTRPCRouter({
         })
       }
 
-      // Temporarily set for this request scope so figmaToPrompt can use it
-      process.env.FIGMA_ACCESS_TOKEN = figmaAccessToken
-
-      // Preflight credit check before Figma generation
       const { estimateCostFromTaskGraph } = await import('@/lib/usage')
       const figmaEstimate = await estimateCostFromTaskGraph(ctx.auth.userId, { tasks: 1 })
       if (!figmaEstimate.allowed) {
@@ -617,26 +616,29 @@ export const projectsRouter = createTRPCRouter({
         })
       }
 
-      // Use figmaToPrompt which handles everything: fetching, parsing, screenshot, description
-      let figmaResult: { prompt: string; screenshotBase64: string | null; pageName: string };
+      let figmaResult: { prompt: string; screenshotBase64: string | null; pageName: string }
+      const operationalToken = process.env.FIGMA_ACCESS_TOKEN
       try {
-        figmaResult = await figmaToPrompt(input.figmaUrl);
+        process.env.FIGMA_ACCESS_TOKEN = figmaAccessToken
+        figmaResult = await figmaToPrompt(input.figmaUrl)
       } catch (e) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: e instanceof Error ? e.message : 'Failed to fetch Figma design. Make sure the file is accessible.',
-        });
+        })
+      } finally {
+        process.env.FIGMA_ACCESS_TOKEN = operationalToken // restore original token
       }
 
-      const extra = input.extraPrompt ? `\n\nAdditional instructions: ${input.extraPrompt}` : '';
-      const fullPrompt = figmaResult.prompt + extra;
+      const extra = input.extraPrompt ? `\n\nAdditional instructions: ${input.extraPrompt}` : ''
+      const fullPrompt = figmaResult.prompt + extra
 
       const projectName = figmaResult.pageName
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, '')
         .trim()
         .replace(/\s+/g, '-')
-        .slice(0, 40) || generateSlug(2, { format: 'kebab' });
+        .slice(0, 40) || generateSlug(2, { format: 'kebab' })
 
       const createdProject = await prisma.project.create({
         data: {
@@ -652,7 +654,7 @@ export const projectsRouter = createTRPCRouter({
           },
         },
         include: { messages: { select: { id: true }, take: 1 } },
-      });
+      })
       const figmaMessageId = createdProject.messages[0]?.id
       if (!figmaMessageId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create message' })
 
@@ -664,10 +666,111 @@ export const projectsRouter = createTRPCRouter({
           messageId: figmaMessageId,
           imageUrl: figmaResult.screenshotBase64,
         },
-      });
+      })
 
-      return createdProject;
+      return createdProject
     }),
+  
+  
+  
+  // importFromFigma: protectedProcedure
+  //   .input(z.object({
+  //     figmaUrl: z.string().url(),
+  //     extraPrompt: z.string().max(500).optional(),
+  //   }))
+  //   .mutation(async ({ input, ctx }) => {
+  //     await requirePaidPlan(ctx.auth.userId);
+  //     // Resolve Figma token — user's own token takes priority over server env var
+  //     // Figma personal tokens are per-user — using a shared token causes 403 errors
+  //     let figmaAccessToken: string | null = null
+
+  //     // 1. Try user's own Figma token from IntegrationConfig
+  //     const figmaIntegration = await prisma.integrationConfig.findFirst({
+  //       where: { project: { userId: ctx.auth.userId }, provider: 'figma_token' },
+  //       select: { encryptedKey: true, iv: true },
+  //     })
+  //     if (figmaIntegration?.encryptedKey && figmaIntegration.iv) {
+  //       try {
+  //         const { decrypt } = await import('@/lib/encryption')
+  //         figmaAccessToken = decrypt(figmaIntegration.encryptedKey, figmaIntegration.iv)
+  //       } catch { /* decryption failed — fall through to env var */ }
+  //     }
+
+  //     // 2. Fall back to server-wide env var (useful for single-tenant deployments)
+  //     if (!figmaAccessToken) figmaAccessToken = process.env.FIGMA_ACCESS_TOKEN ?? null
+
+  //     // 3. Neither configured — give a clear actionable error (not a 500)
+  //     if (!figmaAccessToken) {
+  //       throw new TRPCError({
+  //         code: 'PRECONDITION_FAILED',
+  //         message: 'No Figma token found. Please add your personal Figma access token in Settings → Integrations → Figma Token.',
+  //       })
+  //     }
+
+  //     // Temporarily set for this request scope so figmaToPrompt can use it
+  //     process.env.FIGMA_ACCESS_TOKEN = figmaAccessToken
+
+  //     // Preflight credit check before Figma generation
+  //     const { estimateCostFromTaskGraph } = await import('@/lib/usage')
+  //     const figmaEstimate = await estimateCostFromTaskGraph(ctx.auth.userId, { tasks: 1 })
+  //     if (!figmaEstimate.allowed) {
+  //       throw new TRPCError({
+  //         code: 'TOO_MANY_REQUESTS',
+  //         message: `You have run out of credits. You need at least ${figmaEstimate.estimatedCost} credits but have ${figmaEstimate.balance}.`,
+  //       })
+  //     }
+
+  //     // Use figmaToPrompt which handles everything: fetching, parsing, screenshot, description
+  //     let figmaResult: { prompt: string; screenshotBase64: string | null; pageName: string };
+  //     try {
+  //       figmaResult = await figmaToPrompt(input.figmaUrl);
+  //     } catch (e) {
+  //       throw new TRPCError({
+  //         code: 'BAD_REQUEST',
+  //         message: e instanceof Error ? e.message : 'Failed to fetch Figma design. Make sure the file is accessible.',
+  //       });
+  //     }
+
+  //     const extra = input.extraPrompt ? `\n\nAdditional instructions: ${input.extraPrompt}` : '';
+  //     const fullPrompt = figmaResult.prompt + extra;
+
+  //     const projectName = figmaResult.pageName
+  //       .toLowerCase()
+  //       .replace(/[^a-z0-9\s]/g, '')
+  //       .trim()
+  //       .replace(/\s+/g, '-')
+  //       .slice(0, 40) || generateSlug(2, { format: 'kebab' });
+
+  //     const createdProject = await prisma.project.create({
+  //       data: {
+  //         userId: ctx.auth.userId,
+  //         name: projectName,
+  //         messages: {
+  //           create: {
+  //             content: fullPrompt,
+  //             role: 'USER',
+  //             type: 'RESULT',
+  //             imageUrl: figmaResult.screenshotBase64,
+  //           },
+  //         },
+  //       },
+  //       include: { messages: { select: { id: true }, take: 1 } },
+  //     });
+  //     const figmaMessageId = createdProject.messages[0]?.id
+  //     if (!figmaMessageId) throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Failed to create message' })
+
+  //     await inngest.send({
+  //       name: 'code-agent/run',
+  //       data: {
+  //         value: fullPrompt,
+  //         projectId: createdProject.id,
+  //         messageId: figmaMessageId,
+  //         imageUrl: figmaResult.screenshotBase64,
+  //       },
+  //     });
+
+  //     return createdProject;
+  //   }),
 
   // ── Figma: get frames from a file URL (for the picker) ──────────────────────
 

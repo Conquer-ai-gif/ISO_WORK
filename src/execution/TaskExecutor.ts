@@ -55,8 +55,12 @@ export class TaskExecutor extends EventEmitter {
         )
       }
 
-      // Run all ready tasks in parallel — each stores its result on _result
-      await Promise.all(ready.map((t) => this.executeTask(t)))
+      // Run ready tasks sequentially — parallel step.ai.infer calls from
+      // agent-kit register steps in non-deterministic order and cause
+      // "Could not find step" errors on Inngest replay.
+      for (const task of ready) {
+        await this.executeTask(task)
+      }
 
       // ── Merge results after the wave completes ─────────────────────────────
       // Done here — NOT inside executeTask — to avoid race conditions on

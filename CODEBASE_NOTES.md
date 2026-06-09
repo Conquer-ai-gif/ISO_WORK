@@ -118,7 +118,7 @@ Never run `prisma migrate dev` in production — it can prompt interactively and
 will drop/recreate the shadow database.
 
 ### E2B Sandbox Template
-The sandbox template ID is hardcoded as `'isotope-vibe'` in `sandboxManager.ts`.
+The sandbox template ID is hardcoded as `'isotope-git'` in `sandboxManager.ts`.
 Ensure this template exists in your E2B account before going live. To verify:
 ```bash
 e2b template list

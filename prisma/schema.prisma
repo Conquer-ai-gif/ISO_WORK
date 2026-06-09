@@ -107,6 +107,7 @@ enum PlanStatus {
   pending
   approved
   rejected
+  completed
 }
 
 model Message {
@@ -161,6 +162,7 @@ enum CreditEventReason {
   referral
   plan_upgrade
   plan_renewal
+  purchase
 }
 
 model Credits {
